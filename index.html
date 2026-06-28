@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عجلة تقسيم الفرق</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: #0f1117;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    user-select: none;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    font-weight: 900;
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 24px;
+  }
+
+  .main {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 960px;
+  }
+
+  /* Wheel */
+  .wheel-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .wheel-wrap {
+    position: relative;
+    width: 320px;
+    height: 320px;
+  }
+
+  canvas {
+    border-radius: 50%;
+    box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  }
+
+  .pointer {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 28px solid #FFD700;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    z-index: 10;
+  }
+
+  .current-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 12px;
+    padding: 10px 24px;
+    text-align: center;
+    min-width: 220px;
+    color: #e0e0e0;
+  }
+
+  .spin-btn {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #000;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 48px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 4px 20px rgba(255,165,0,0.4);
+  }
+  .spin-btn:hover { transform: scale(1.04); }
+  .spin-btn:active { transform: scale(0.97); }
+  .spin-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+  /* Result popup */
+  .result-popup {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .result-popup.show { display: flex; }
+
+  .result-card {
+    border-radius: 20px;
+    padding: 36px 56px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+    animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    from { transform: scale(0.6); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .result-emoji { font-size: 4rem; margin-bottom: 8px; }
+  .result-team-label { font-size: 1rem; font-weight: 600; opacity: 0.85; margin-bottom: 6px; }
+  .result-name { font-size: 2rem; font-weight: 900; margin-bottom: 6px; }
+  .result-desc { font-size: 0.95rem; opacity: 0.8; }
+
+  .result-popup .next-btn {
+    background: #fff;
+    color: #111;
+    border: none;
+    border-radius: 50px;
+    padding: 12px 40px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: transform 0.1s;
+  }
+  .result-popup .next-btn:hover { transform: scale(1.04); }
+
+  /* Teams panel */
+  .teams {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 240px;
+  }
+
+  .team-card {
+    border-radius: 14px;
+    padding: 16px 20px;
+    border: 1.5px solid;
+  }
+  .team-card.red {
+    background: rgba(220,38,38,0.08);
+    border-color: rgba(220,38,38,0.35);
+  }
+  .team-card.blue {
+    background: rgba(37,99,235,0.08);
+    border-color: rgba(37,99,235,0.35);
+  }
+
+  .team-title {
+    font-size: 1rem;
+    font-weight: 900;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .team-card.red .team-title { color: #f87171; }
+  .team-card.blue .team-title { color: #60a5fa; }
+
+  .team-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .red-dot { background: #ef4444; }
+  .blue-dot { background: #3b82f6; }
+
+  .team-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(255,255,255,0.07);
+    border-radius: 20px;
+    padding: 2px 10px;
+    margin-right: auto;
+  }
+
+  .member-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .member-list li {
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+  /* Progress */
+  .progress-bar-wrap {
+    background: #1a1d27;
+    border-radius: 20px;
+    height: 6px;
+    width: 320px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #FFD700, #FFA500);
+    border-radius: 20px;
+    transition: width 0.4s;
+  }
+  .progress-label {
+    font-size: 0.78rem;
+    color: #888;
+    margin-top: -8px;
+  }
+
+  /* Reset */
+  .reset-btn {
+    background: transparent;
+    border: 1px solid #333;
+    color: #888;
+    border-radius: 50px;
+    padding: 8px 24px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .reset-btn:hover { border-color: #666; color: #ccc; }
+
+  .done-banner {
+    display: none;
+    background: linear-gradient(135deg, #1a1d27, #23263a);
+    border: 1.5px solid #FFD700;
+    border-radius: 16px;
+    padding: 20px 32px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #FFD700;
+    margin-top: 8px;
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+</style>
+</head>
+<body>
+
+<h1>🎡 عجلة تقسيم الفرق</h1>
+<p class="subtitle">كل شخص يلف العجلة — النتيجة تحدد فريقه</p>
+
+<div class="main">
+
+  <!-- Wheel -->
+  <div class="wheel-section">
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="320" height="320"></canvas>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progressLabel">لسه مفيش حد لف</div>
+
+    <div class="current-name" id="currentName">اختار أول شخص يلف 👇</div>
+    <button class="spin-btn" id="spinBtn" onclick="spin()">🎰 لف العجلة</button>
+    <button class="reset-btn" onclick="resetAll()">🔄 إعادة البداية</button>
+    <div class="done-banner" id="doneBanner">🎉 اتقسمتوا! الفرق جاهزة</div>
+  </div>
+
+  <!-- Teams -->
+  <div class="teams">
+    <div class="team-card red">
+      <div class="team-title">
+        <span class="team-dot red-dot"></span>
+        الفريق الأحمر 🔴
+        <span class="team-count" id="redCount">0 / 7</span>
+      </div>
+      <ul class="member-list" id="redList"></ul>
+    </div>
+    <div class="team-card blue">
+      <div class="team-title">
+        <span class="team-dot blue-dot"></span>
+        الفريق الأزرق 🔵
+        <span class="team-count" id="blueCount">0 / 6</span>
+      </div>
+      <ul class="member-list" id="blueList"></ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- Result popup -->
+<div class="result-popup" id="resultPopup">
+  <div class="result-card" id="resultCard">
+    <div class="result-emoji" id="resultEmoji"></div>
+    <div class="result-team-label" id="resultTeamLabel"></div>
+    <div class="result-name" id="resultName"></div>
+    <div class="result-desc" id="resultDesc"></div>
+  </div>
+  <button class="next-btn" onclick="closeResult()">التالي ▶</button>
+</div>
+
+<script>
+const NAMES = [
+  "مي مسعد","عبدالحميد السيد","عبدالرحمن اشرف","سلوى السيد","شيرين جمال",
+  "أحمد السعيد","منة العربي","شيماء مكرم","احمد سعيد","محمد بلال",
+  "آلاء نبيل","عمر حافظ","ندى احمد"
+];
+
+const TEAM_COLORS = {
+  red:  { bg:"#DC2626", light:"#fee2e2", text:"#991b1b", emoji:"🔴", label:"الفريق الأحمر", desc:"قوة وشجاعة" },
+  blue: { bg:"#2563EB", light:"#dbeafe", text:"#1e40af", emoji:"🔵", label:"الفريق الأزرق", desc:"ثقة وتماسك" }
+};
+
+// Shuffle util
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Pre-assign: random order, first 7 → red, next 6 → blue
+let assignments = [];
+let order = [];
+let spunIndex = 0;
+let spinning = false;
+
+function buildAssignments() {
+  const shuffled = shuffle(NAMES);
+  assignments = {};
+  shuffled.forEach((name, i) => {
+    assignments[name] = i < 7 ? 'red' : 'blue';
+  });
+  // Random display order (separate from assignment order)
+  order = shuffle(NAMES);
+}
+
+buildAssignments();
+
+// Canvas wheel setup
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height, CX = W/2, CY = H/2, R = W/2 - 8;
+
+// Wheel has 2 segments: red and blue (50/50 visual, assignment is pre-decided)
+const SEG_COLORS = ['#DC2626','#1D4ED8','#EF4444','#2563EB','#F87171','#3B82F6','#B91C1C','#1E40AF','#DC2626','#2563EB','#EF4444','#3B82F6','#DC2626'];
+const N_SEGS = 13;
+const SEG_ANGLE = (2 * Math.PI) / N_SEGS;
+
+let currentAngle = 0;
+
+function drawWheel(rotAngle) {
+  ctx.clearRect(0,0,W,H);
+  for (let i = 0; i < N_SEGS; i++) {
+    const start = rotAngle + i * SEG_ANGLE;
+    const end = start + SEG_ANGLE;
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.arc(CX, CY, R, start, end);
+    ctx.closePath();
+    ctx.fillStyle = SEG_COLORS[i];
+    ctx.fill();
+    ctx.strokeStyle = '#0f1117';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label on segment
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(start + SEG_ANGLE / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px Cairo';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 3;
+    const idx = spunIndex; // show upcoming person's name
+    const label = order[i] ? order[i].split(' ')[0] : '';
+    ctx.fillText(label, R - 10, 4);
+    ctx.restore();
+  }
+
+  // Center circle
+  ctx.beginPath();
+  ctx.arc(CX, CY, 28, 0, 2*Math.PI);
+  ctx.fillStyle = '#0f1117';
+  ctx.fill();
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 18px Cairo';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🎡', CX, CY);
+}
+
+drawWheel(0);
+
+function updateProgress() {
+  const total = NAMES.length;
+  const done = spunIndex;
+  const pct = (done / total) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = done === 0
+    ? 'لسه مفيش حد لف'
+    : `${done} من ${total} لفوا`;
+
+  document.getElementById('redCount').textContent =
+    document.querySelectorAll('#redList li').length + ' / 7';
+  document.getElementById('blueCount').textContent =
+    document.querySelectorAll('#blueList li').length + ' / 6';
+
+  if (spunIndex < total) {
+    document.getElementById('currentName').textContent = `الجاي: ${order[spunIndex]}`;
+  } else {
+    document.getElementById('currentName').textContent = '✅ الكل لف!';
+    document.getElementById('spinBtn').disabled = true;
+    document.getElementById('doneBanner').style.display = 'block';
+  }
+}
+
+updateProgress();
+
+function spin() {
+  if (spinning || spunIndex >= NAMES.length) return;
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+
+  const person = order[spunIndex];
+  const team = assignments[person];
+
+  // Spin to a random angle (many rotations + land somewhere)
+  const extraSpins = 5 + Math.floor(Math.random() * 4); // 5-8 full spins
+  const targetAngle = currentAngle + extraSpins * 2 * Math.PI + Math.random() * 2 * Math.PI;
+
+  const duration = 3500;
+  const start = performance.now();
+  const startAngle = currentAngle;
+
+  function animate(now) {
+    const elapsed = now - start;
+    const t = Math.min(elapsed / duration, 1);
+    // Ease out cubic
+    const ease = 1 - Math.pow(1 - t, 3);
+    currentAngle = startAngle + (targetAngle - startAngle) * ease;
+    drawWheel(currentAngle);
+
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      currentAngle = targetAngle;
+      spinning = false;
+      showResult(person, team);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function showResult(name, team) {
+  const t = TEAM_COLORS[team];
+  const card = document.getElementById('resultCard');
+  card.style.background = team === 'red'
+    ? 'linear-gradient(135deg, #450a0a, #7f1d1d)'
+    : 'linear-gradient(135deg, #0c1445, #1e3a8a)';
+  card.style.border = `2.5px solid ${t.bg}`;
+
+  document.getElementById('resultEmoji').textContent = t.emoji;
+  document.getElementById('resultTeamLabel').textContent = t.label;
+  document.getElementById('resultTeamLabel').style.color = '#fff';
+  document.getElementById('resultName').textContent = name;
+  document.getElementById('resultDesc').textContent = t.desc;
+
+  document.getElementById('resultPopup').classList.add('show');
+
+  // Add to team list
+  const listId = team === 'red' ? 'redList' : 'blueList';
+  const li = document.createElement('li');
+  li.textContent = name;
+  li.style.color = team === 'red' ? '#fca5a5' : '#93c5fd';
+  document.getElementById(listId).appendChild(li);
+
+  spunIndex++;
+  updateProgress();
+}
+
+function closeResult() {
+  document.getElementById('resultPopup').classList.remove('show');
+  if (spunIndex < NAMES.length) {
+    document.getElementById('spinBtn').disabled = false;
+  }
+}
+
+const ADMIN_PIN = '1234'; // غير الـ PIN ده لأي رقم سري تختاره
+
+function resetAll() {
+  const entered = prompt('أدخل الـ PIN لإعادة البداية:');
+  if (entered === null) return; // ضغط cancel
+  if (entered !== ADMIN_PIN) {
+    alert('❌ PIN غلط! مش مسموح بإعادة البداية.');
+    return;
+  }
+  spunIndex = 0;
+  spinning = false;
+  currentAngle = 0;
+  buildAssignments();
+  document.getElementById('redList').innerHTML = '';
+  document.getElementById('blueList').innerHTML = '';
+  document.getElementById('spinBtn').disabled = false;
+  document.getElementById('doneBanner').style.display = 'none';
+  document.getElementById('resultPopup').classList.remove('show');
+  drawWheel(0);
+  updateProgress();
+}
+</script>
+</body>
+</html>
